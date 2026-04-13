@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>手写笔记 OCR 转 Markdown</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Offline Desktop Mode</p>
+          <h1>批量整理手写笔记并生成电子学习笔记</h1>
+          <p class="lead">
+            每张图片保留独立 Markdown，可边识别边回填结果；再基于全部识别结果与手工修改内容，生成一版结构清晰的电子学习笔记。
+          </p>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <form id="upload-form" class="upload-card">
+          <label for="image-input" class="dropzone" id="dropzone">
+            <input id="image-input" name="images" type="file" accept="image/*" multiple required />
+            <span class="dropzone-title">拖拽多张图片到这里，或点击选择文件</span>
+            <span class="dropzone-subtitle">支持批量上传，建议图片清晰、单页、方向正确。</span>
+          </label>
+          <div class="actions">
+            <button type="submit" id="submit-button">批量识别</button>
+            <span id="status" class="status">等待上传</span>
+          </div>
+        </form>
+
+        <section class="panel queue-panel">
+          <div class="panel-header">
+            <h2>文件队列</h2>
+            <span id="queue-count" class="muted">0 项</span>
+          </div>
+          <div id="queue-list" class="queue-list"></div>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="panel-header">
+            <h2>图片预览</h2>
+            <div class="header-actions preview-header-actions">
+              <span id="current-file" class="muted">未选择文件</span>
+            </div>
+          </div>
+          <div class="preview-frame">
+            <div id="preview-empty" class="preview-empty">选择图片后在这里预览</div>
+            <img id="preview-image" alt="上传图片预览" class="preview-image is-hidden" />
+            <div class="preview-rotate-controls">
+              <button type="button" id="rotate-left-button" class="preview-rotate-button" aria-label="左转 90 度">
+                ↺
+              </button>
+              <button type="button" id="rotate-right-button" class="preview-rotate-button" aria-label="右转 90 度">
+                ↻
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel result-panel">
+          <div class="panel-header">
+            <h2>单图 Markdown</h2>
+            <div class="header-actions">
+              <button type="button" id="copy-button">复制</button>
+              <button type="button" id="save-button">保存 .md</button>
+            </div>
+          </div>
+          <div class="editor-shell">
+            <div class="editor-tabs">
+              <div class="editor-mode-group">
+                <button type="button" class="mode-button is-active" data-target="single" data-mode="source">源码</button>
+                <button type="button" class="mode-button" data-target="single" data-mode="preview">预览</button>
+              </div>
+              <div class="editor-tools">
+                <button
+                  type="button"
+                  class="info-button"
+                  data-tip-button="single"
+                  aria-label="单图 Markdown 编辑提示"
+                >
+                  i
+                </button>
+                <div class="tip-card is-hidden" data-tip-panel="single">
+                  Tab 缩进，Ctrl/Cmd+B 粗体，Ctrl/Cmd+I 斜体，Alt+1/2 标题
+                </div>
+              </div>
+            </div>
+            <textarea id="markdown-output" spellcheck="false" placeholder="识别完成后会显示在这里"></textarea>
+            <article id="markdown-preview" class="markdown-preview is-hidden"></article>
+          </div>
+        </section>
+
+        <section class="panel summary-panel">
+          <div class="panel-header">
+            <h2>学习笔记</h2>
+            <div class="header-actions">
+              <button type="button" id="summary-button">生成学习笔记</button>
+              <span id="summary-title" class="muted">尚未生成</span>
+              <button type="button" id="summary-copy-button">复制</button>
+              <button type="button" id="summary-save-button">保存 .md</button>
+            </div>
+          </div>
+          <div class="editor-shell">
+            <div class="editor-tabs">
+              <div class="editor-mode-group">
+                <button type="button" class="mode-button is-active" data-target="summary" data-mode="source">源码</button>
+                <button type="button" class="mode-button" data-target="summary" data-mode="preview">预览</button>
+              </div>
+              <div class="editor-tools">
+                <button
+                  type="button"
+                  class="info-button"
+                  data-tip-button="summary"
+                  aria-label="学习笔记编辑提示"
+                >
+                  i
+                </button>
+                <div class="tip-card is-hidden" data-tip-panel="summary">
+                  可在这里继续修改学习笔记，预览模式仅展示 Markdown 渲染结果。
+                </div>
+              </div>
+            </div>
+            <textarea id="summary-output" spellcheck="false" placeholder="点击“生成学习笔记”后，这里会显示汇总笔记"></textarea>
+            <article id="summary-preview" class="markdown-preview is-hidden"></article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
