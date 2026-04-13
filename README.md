@@ -1,123 +1,148 @@
-# 手写笔记 OCR 离线桌面版
+# Handwritten Notes OCR
 
-这是一个基于 `Go + PaddleOCR + 内嵌前端` 的本地离线应用：
+An offline-first handwritten note OCR application built with `Go + PaddleOCR + embedded web UI`, with optional online OCR fallback and Qwen-based study note generation.
 
-- 启动一个本机专用界面
-- 在浏览器里选择或拖拽手写笔记图片
-- Go 程序调用本机 `PaddleOCR`
-- 自动整理成 Markdown
+It is designed for turning photographed handwritten notes into editable Markdown, then refining and merging them into a structured electronic study note.
 
-当前版本不依赖任何外部 API，也不会把图片上传到在线服务。
+## Features
 
-## 桌面版形态
+- Batch upload and batch OCR processing
+- Incremental queue updates during concurrent OCR
+- Per-image Markdown result retention and editing
+- Markdown source / preview modes
+- Image rotation before OCR
+- Soft remove / restore for queue items
+- Local Markdown export for single-note and study-note outputs
+- Study note generation from all recognized Markdown on the page
+- Precheck before LLM generation to avoid unnecessary token usage on short content
+- Embedded frontend assets served by the Go binary
 
-- 前端页面已嵌入 Go 二进制
-- OCR Python 脚本已嵌入 Go 二进制，启动时自动释放到临时目录
-- 服务只监听 `127.0.0.1`
-- 程序启动后会自动打开本机界面
+## Tech Stack
 
-这意味着分发时你主要需要：
+- Backend: Go
+- OCR:
+  - Local: PaddleOCR via Python
+  - Optional fallback/primary online OCR endpoint
+- LLM: Qwen via OpenAI-compatible API
+- Frontend: HTML, CSS, vanilla JavaScript
+- Transport:
+  - REST for upload and control endpoints
+  - SSE streaming for batch OCR updates and study-note generation
 
-1. `server.exe`
-2. 本机 Python 环境
-3. 本机安装好的 `paddleocr` 和 `paddlepaddle`
+## How It Works
 
-## 运行要求
+1. Upload one or more note images.
+2. The frontend can rotate images before submission.
+3. The Go backend processes OCR requests concurrently.
+4. Each image produces an individual Markdown result that can be edited manually.
+5. The app collects all non-removed recognized Markdown entries.
+6. Before calling the LLM, the backend performs a short-content precheck.
+7. If the content is sufficient, Qwen generates a corrected and merged study note in Markdown.
 
-1. Go 1.25+，仅在源码运行或重新编译时需要
-2. Python 3.10+，并且命令行可直接调用
-3. 安装 PaddleOCR 依赖
+## Project Structure
+
+```text
+cmd/server/                 Go entrypoint
+internal/app/               server, routes, config, runtime
+internal/ocr/               OCR client
+internal/notes/             study-note prompt and precheck logic
+internal/llm/               Qwen client
+internal/markdown/          OCR-to-Markdown builder
+internal/assets/            embedded assets and OCR helper script
+internal/assets/web/        frontend UI
+```
+
+## Run Locally
+
+### Requirements
+
+- Go `1.25+`
+- Python `3.10+`
+- Windows environment tested
+
+### Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-如果你的 Python 可执行文件不是 `python`，启动前设置：
-
-```bash
-set OCR_PYTHON_BIN=C:\Path\To\python.exe
-```
-
-## 启动方式
-
-源码运行：
+### Start from source
 
 ```bash
 go run ./cmd/server
 ```
 
-编译可执行文件：
+### Build executable
 
 ```bash
-go build -o note-ocr.exe ./cmd/server
+go build -o handwritten-notes-ocr.exe ./cmd/server
 ```
 
-启动后界面会自动打开：
+By default, the app opens at:
 
 [http://127.0.0.1:8080](http://127.0.0.1:8080)
 
-## 可配置环境变量
+## Environment Variables
 
-- `PORT`: 本地端口，默认 `8080`
-- `OCR_PYTHON_BIN`: Python 可执行文件，默认 `python`
-- `OCR_SCRIPT_PATH`: 可选，手动指定外部 OCR 脚本路径
-- `OCR_LANG`: PaddleOCR 语言，默认 `ch`
-- `OPEN_BROWSER`: 是否启动后自动打开界面，默认 `1`
-- `OCR_ONLINE_API_URL`: 可选，配置远端 OCR API 地址
-- `OCR_ONLINE_API_TOKEN`: 可选，配置远端 OCR Bearer Token
+Use local environment variables or a local `.env` file kept out of Git.
 
-## OCR 链路
+See `.env.example` for a template.
 
-默认情况下，程序优先使用项目内 `.venv` 的本地 PaddleOCR。
+- `PORT`: local server port, default `8080`
+- `OPEN_BROWSER`: open browser on startup, default `1`
+- `OCR_PYTHON_BIN`: Python executable path
+- `OCR_SCRIPT_PATH`: optional external OCR script path
+- `OCR_LANG`: OCR language, default `ch`
+- `OCR_CONCURRENCY`: backend OCR concurrency, default `3`
+- `OCR_ONLINE_API_URL`: optional online OCR endpoint
+- `OCR_ONLINE_API_TOKEN`: online OCR token
+- `QWEN_API_KEY`: Qwen API key
+- `QWEN_BASE_URL`: Qwen-compatible API base URL
+- `QWEN_MODEL`: Qwen model name
 
-如果配置了 `OCR_ONLINE_API_URL`，程序会先尝试调用在线 OCR 接口；在线接口失败时，会回退到本地 PaddleOCR。
+## API Overview
 
-当前已兼容 AI Studio 这类调用格式：
+### Health
 
-- 请求头：`Authorization: token <TOKEN>`
-- 请求体字段：`file`、`fileType`、`useDocOrientationClassify`、`useDocUnwarping`、`useChartRecognition`
-- 响应读取：`result.layoutParsingResults[*].markdown.text`
+- `GET /api/health`
 
-## 接口
+### OCR
 
-虽然这是桌面版，本地程序仍然暴露本机接口供界面调用：
+- `POST /api/ocr`
+- `POST /api/ocr/batch`
+- `POST /api/ocr/batch/stream`
 
-### `GET /api/health`
+### Study Notes
 
-用于检查程序是否启动成功。
+- `POST /api/notes/precheck`
+- `POST /api/notes/summarize`
+- `POST /api/notes/summarize/stream`
 
-### `POST /api/ocr`
+## Notes on Security
 
-表单字段：
+- Real API keys should never be committed.
+- `.env` and `.env.*` are ignored by Git.
+- Only `.env.example` should be tracked.
 
-- `image`: 图片文件
+## Current Limitations
 
-返回示例：
+- Local OCR still requires a working Python runtime and PaddleOCR installation.
+- Handwritten OCR quality depends heavily on image quality and handwriting readability.
+- The Markdown preview is intentionally lightweight rather than a full Markdown engine.
+- The study-note stage is constrained to the provided Markdown content and does not aim to add outside knowledge.
 
-```json
-{
-  "fileName": "note.jpg",
-  "markdown": "# 会议记录\n\n## 待办\n\n- 整理方案\n",
-  "rawText": "会议记录\n待办\n整理方案",
-  "lines": [
-    {
-      "text": "会议记录",
-      "score": 0.97,
-      "box": [[0, 0], [10, 0], [10, 10], [0, 10]]
-    }
-  ]
-}
-```
+## Why This Project Is Interesting
 
-## 当前限制
+- Combines local OCR, optional online OCR, and LLM post-processing in one workflow
+- Uses Go concurrency for batch OCR processing
+- Uses SSE to stream both OCR progress and LLM output
+- Preserves editable per-image OCR output before generating a merged study note
+- Designed as an offline-first tool rather than a cloud-only demo
 
-- 这仍然需要本机安装 Python 和 PaddleOCR 运行库，不是零依赖 EXE。
-- Markdown 整理逻辑目前是启发式规则。
-- 手写体识别准确率主要取决于图片质量和 PaddleOCR 模型表现。
+## Roadmap
 
-## 下一步可继续做
-
-1. 直接打包成真正的原生窗口版，例如 `Wails`
-2. 增加多页笔记合并
-3. 增加 Markdown 文件导出
-4. 增加图片预处理和旋转校正
+- Better Markdown rendering support
+- Richer logging and performance breakdown
+- Native desktop packaging
+- ZIP export for batch Markdown results
+- More robust note-quality heuristics before LLM calls
