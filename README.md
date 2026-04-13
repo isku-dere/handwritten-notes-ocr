@@ -1,5 +1,7 @@
 # Handwritten Notes OCR
 
+[中文说明](./README.zh-CN.md)
+
 An offline-first handwritten note OCR application built with `Go + PaddleOCR + embedded web UI`, with optional online OCR fallback and Qwen-based study note generation.
 
 It is designed for turning photographed handwritten notes into editable Markdown, then refining and merging them into a structured electronic study note.
