@@ -86,7 +86,7 @@ By default, the app opens at:
 
 ## Environment Variables
 
-Use local environment variables or a local `.env` file kept out of Git.
+Use local environment variables or a local `.env` file kept out of Git. On startup, the app automatically loads `.env` from the current working directory or from the executable directory. Existing system environment variables take precedence over `.env` values.
 
 See `.env.example` for a template.
 

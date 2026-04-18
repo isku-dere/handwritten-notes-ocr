@@ -1,9 +1,11 @@
 package app
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -22,6 +24,8 @@ type Config struct {
 }
 
 func LoadConfig() Config {
+	loadDotEnv()
+
 	return Config{
 		Port:           getEnv("PORT", "8080"),
 		MaxUploadMB:    15,
@@ -36,6 +40,74 @@ func LoadConfig() Config {
 		QwenBaseURL:    getEnv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
 		QwenModel:      getEnv("QWEN_MODEL", "qwen-plus-latest"),
 	}
+}
+
+func loadDotEnv() {
+	for _, path := range dotenvCandidates() {
+		if err := loadDotEnvFile(path); err == nil {
+			return
+		}
+	}
+}
+
+func dotenvCandidates() []string {
+	paths := []string{".env"}
+
+	if exePath, err := os.Executable(); err == nil {
+		paths = append(paths, filepath.Join(filepath.Dir(exePath), ".env"))
+	}
+
+	return paths
+}
+
+func loadDotEnvFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		key, value, ok := parseDotEnvLine(scanner.Text())
+		if !ok {
+			continue
+		}
+		if os.Getenv(key) != "" {
+			continue
+		}
+		_ = os.Setenv(key, value)
+	}
+
+	return scanner.Err()
+}
+
+func parseDotEnvLine(line string) (string, string, bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return "", "", false
+	}
+	line = strings.TrimPrefix(line, "export ")
+
+	key, value, ok := strings.Cut(line, "=")
+	if !ok {
+		return "", "", false
+	}
+
+	key = strings.TrimSpace(key)
+	value = strings.TrimSpace(value)
+	if key == "" {
+		return "", "", false
+	}
+
+	if len(value) >= 2 {
+		quote := value[0]
+		if (quote == '"' || quote == '\'') && value[len(value)-1] == quote {
+			value = value[1 : len(value)-1]
+		}
+	}
+
+	return key, value, true
 }
 
 func getEnv(key, fallback string) string {
